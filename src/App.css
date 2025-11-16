@@ -218,6 +218,31 @@
   margin-bottom: 8px;
 }
 
+/* Difficulty badges */
+.difficulty {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+  margin-left: 10px;
+}
+
+.difficulty.easy {
+  background-color: #22c55e;
+  color: #fff;
+}
+
+.difficulty.medium {
+  background-color: #f59e0b;
+  color: #fff;
+}
+
+.difficulty.hard {
+  background-color: #ef4444;
+  color: #fff;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .header {

@@ -18,29 +18,44 @@ function App() {
   const {
     isListening,
     currentNote,
+    detectedNotes,
     clarity,
     error,
     startListening,
-    stopListening
+    stopListening,
+    checkNotesMatch
   } = usePitchDetection();
 
   const lastCorrectTimeRef = useRef(0);
 
-  // Check if the played note matches the target
+  // Check if the played note(s) match the target
   useEffect(() => {
-    if (!isPlaying || !currentSong || !currentNote) return;
+    if (!isPlaying || !currentSong || detectedNotes.length === 0) return;
 
-    const targetNote = currentSong.notes[currentNoteIndex];
-    if (!targetNote) return;
+    const targetNoteData = currentSong.notes[currentNoteIndex];
+    if (!targetNoteData) return;
 
     const now = Date.now();
     // Debounce to prevent multiple triggers
     if (now - lastCorrectTimeRef.current < 300) return;
 
-    if (currentNote === targetNote.note) {
+    // Get target notes (support both old and new format)
+    const targetNotes = targetNoteData.notes || [targetNoteData.note];
+
+    // Check if all target notes are matched
+    const isMatch = checkNotesMatch(targetNotes);
+
+    if (isMatch) {
       lastCorrectTimeRef.current = now;
-      setScore(prev => prev + 10);
-      setFeedback('Correct! 🎵');
+      // More points for chords
+      const pointsEarned = targetNotes.length * 10;
+      setScore(prev => prev + pointsEarned);
+
+      if (targetNotes.length > 1) {
+        setFeedback(`Chord correct! +${pointsEarned} 🎵`);
+      } else {
+        setFeedback('Correct! +10 🎵');
+      }
       setShowFeedback(true);
 
       setTimeout(() => setShowFeedback(false), 500);
@@ -57,7 +72,7 @@ function App() {
         stopListening();
       }
     }
-  }, [currentNote, currentNoteIndex, currentSong, isPlaying]);
+  }, [detectedNotes, currentNoteIndex, currentSong, isPlaying, checkNotesMatch, stopListening]);
 
   const handleSongSelect = (songKey) => {
     const song = SAMPLE_SONGS[songKey];
@@ -112,6 +127,22 @@ function App() {
 
   const currentTarget = currentSong?.notes[currentNoteIndex];
 
+  // Get target notes and fingers (support both old and new format)
+  const getTargetNotes = () => {
+    if (!currentTarget) return [];
+    return currentTarget.notes || [currentTarget.note];
+  };
+
+  const getTargetFingers = () => {
+    if (!currentTarget) return [];
+    return currentTarget.fingers || [currentTarget.finger];
+  };
+
+  const getTargetHand = () => {
+    if (!currentTarget) return 'right';
+    return currentTarget.hand || 'right';
+  };
+
   return (
     <div className="app">
       <header className="header">
@@ -132,6 +163,11 @@ function App() {
           <>
             <div className="song-info">
               <h2>Now Playing: {currentSong.name}</h2>
+              {currentSong.difficulty && (
+                <span className={`difficulty ${currentSong.difficulty.toLowerCase()}`}>
+                  {currentSong.difficulty}
+                </span>
+              )}
               <div className="controls">
                 {!isPlaying ? (
                   <button onClick={handleStart} className="btn-start">
@@ -155,9 +191,10 @@ function App() {
 
             <div className="piano-container">
               <Piano
-                activeNote={currentNote}
-                targetNote={currentTarget?.note}
-                targetFinger={currentTarget?.finger}
+                activeNotes={detectedNotes}
+                targetNotes={getTargetNotes()}
+                targetFingers={getTargetFingers()}
+                targetHand={getTargetHand()}
                 showFingers={true}
               />
             </div>
@@ -165,7 +202,11 @@ function App() {
             {isListening && (
               <div className="listening-indicator">
                 <div className="pulse"></div>
-                <span>Listening... {currentNote ? `Detected: ${currentNote}` : 'Waiting for input'}</span>
+                <span>
+                  Listening... {detectedNotes.length > 0
+                    ? `Detected: ${detectedNotes.join(', ')}`
+                    : 'Waiting for input'}
+                </span>
                 <span className="clarity">Clarity: {(clarity * 100).toFixed(1)}%</span>
               </div>
             )}
@@ -191,6 +232,8 @@ function App() {
             <ul>
               <li>The app will highlight which key to press</li>
               <li>Numbers on keys show which finger to use</li>
+              <li>L/R indicators show which hand to use</li>
+              <li>Chords require playing multiple notes together</li>
               <li>Play the note on your piano or MIDI keyboard</li>
               <li>The app will listen and verify your input</li>
             </ul>

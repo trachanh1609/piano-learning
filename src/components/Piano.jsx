@@ -1,19 +1,20 @@
 import { useEffect, useRef } from 'react';
 import * as Tone from 'tone';
-import { generatePianoKeys, FINGER_NAMES } from '../utils/noteMapping';
+import { generatePianoKeys, FINGER_NAMES, HAND_NAMES } from '../utils/noteMapping';
 
 const Piano = ({
-  activeNote = null,
-  targetNote = null,
-  targetFinger = null,
+  activeNotes = [], // Array of currently played notes
+  targetNotes = [], // Array of target notes (for chords)
+  targetFingers = [], // Array of fingers for each target note
+  targetHand = 'right', // Which hand to use
   onKeyClick = () => {},
   showFingers = true
 }) => {
   const synthRef = useRef(null);
-  const keys = generatePianoKeys(3, 5);
+  const keys = generatePianoKeys(2, 5); // Extended range for left hand
 
   useEffect(() => {
-    synthRef.current = new Tone.Synth().toDestination();
+    synthRef.current = new Tone.PolySynth(Tone.Synth).toDestination();
     return () => {
       if (synthRef.current) {
         synthRef.current.dispose();
@@ -28,9 +29,26 @@ const Piano = ({
     onKeyClick(note);
   };
 
+  const getFingerForNote = (note) => {
+    const index = targetNotes.indexOf(note);
+    if (index !== -1 && targetFingers[index] !== undefined) {
+      return targetFingers[index];
+    }
+    return null;
+  };
+
+  const getHandIndicator = (note) => {
+    // Determine if this note is for left or right hand based on octave
+    const octave = parseInt(note.match(/\d+/)[0]);
+    if (targetHand === 'both') {
+      return octave <= 3 ? 'L' : 'R';
+    }
+    return targetHand === 'left' ? 'L' : 'R';
+  };
+
   const getKeyStyle = (key) => {
-    const isActive = activeNote === key.note;
-    const isTarget = targetNote === key.note;
+    const isActive = activeNotes.includes(key.note);
+    const isTarget = targetNotes.includes(key.note);
 
     if (key.isBlack) {
       return {
@@ -78,48 +96,72 @@ const Piano = ({
       <div key={octaveNum} style={{ position: 'relative', display: 'inline-block' }}>
         {/* White keys */}
         <div style={{ display: 'flex' }}>
-          {whiteKeys.map(key => (
-            <button
-              key={key.note}
-              onClick={() => playNote(key.note)}
-              style={getKeyStyle(key)}
-            >
-              <div style={{
-                position: 'absolute',
-                bottom: '10px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                fontSize: '10px',
-                color: '#666'
-              }}>
-                {key.note}
-              </div>
-              {showFingers && targetNote === key.note && targetFinger && (
+          {whiteKeys.map(key => {
+            const finger = getFingerForNote(key.note);
+            const isTarget = targetNotes.includes(key.note);
+            return (
+              <button
+                key={key.note}
+                onClick={() => playNote(key.note)}
+                style={getKeyStyle(key)}
+              >
                 <div style={{
                   position: 'absolute',
-                  top: '40%',
+                  bottom: '10px',
                   left: '50%',
                   transform: 'translateX(-50%)',
-                  backgroundColor: '#f59e0b',
-                  color: '#fff',
-                  borderRadius: '50%',
-                  width: '24px',
-                  height: '24px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 'bold',
-                  fontSize: '14px'
+                  fontSize: '10px',
+                  color: '#666'
                 }}>
-                  {targetFinger}
+                  {key.note}
                 </div>
-              )}
-            </button>
-          ))}
+                {showFingers && isTarget && finger !== null && (
+                  <>
+                    <div style={{
+                      position: 'absolute',
+                      top: '30%',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      backgroundColor: '#f59e0b',
+                      color: '#fff',
+                      borderRadius: '50%',
+                      width: '24px',
+                      height: '24px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 'bold',
+                      fontSize: '14px'
+                    }}>
+                      {finger}
+                    </div>
+                    {targetHand === 'both' && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        backgroundColor: getHandIndicator(key.note) === 'L' ? '#3b82f6' : '#10b981',
+                        color: '#fff',
+                        borderRadius: '4px',
+                        padding: '2px 6px',
+                        fontSize: '10px',
+                        fontWeight: 'bold'
+                      }}>
+                        {getHandIndicator(key.note)}
+                      </div>
+                    )}
+                  </>
+                )}
+              </button>
+            );
+          })}
         </div>
         {/* Black keys */}
         {blackKeys.map(key => {
           const offset = getBlackKeyOffset(key.note);
+          const finger = getFingerForNote(key.note);
+          const isTarget = targetNotes.includes(key.note);
           return (
             <button
               key={key.note}
@@ -129,25 +171,43 @@ const Piano = ({
                 left: `${offset}px`
               }}
             >
-              {showFingers && targetNote === key.note && targetFinger && (
-                <div style={{
-                  position: 'absolute',
-                  top: '30%',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  backgroundColor: '#f59e0b',
-                  color: '#fff',
-                  borderRadius: '50%',
-                  width: '20px',
-                  height: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 'bold',
-                  fontSize: '12px'
-                }}>
-                  {targetFinger}
-                </div>
+              {showFingers && isTarget && finger !== null && (
+                <>
+                  <div style={{
+                    position: 'absolute',
+                    top: '20%',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    backgroundColor: '#f59e0b',
+                    color: '#fff',
+                    borderRadius: '50%',
+                    width: '20px',
+                    height: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 'bold',
+                    fontSize: '12px'
+                  }}>
+                    {finger}
+                  </div>
+                  {targetHand === 'both' && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '45%',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      backgroundColor: getHandIndicator(key.note) === 'L' ? '#3b82f6' : '#10b981',
+                      color: '#fff',
+                      borderRadius: '4px',
+                      padding: '1px 4px',
+                      fontSize: '8px',
+                      fontWeight: 'bold'
+                    }}>
+                      {getHandIndicator(key.note)}
+                    </div>
+                  )}
+                </>
               )}
             </button>
           );
@@ -176,14 +236,29 @@ const Piano = ({
           renderOctave(octaveKeys, octaveNum)
         )}
       </div>
-      {showFingers && targetFinger && (
+      {showFingers && targetNotes.length > 0 && (
         <div style={{
           marginTop: '15px',
           textAlign: 'center',
-          color: '#f59e0b',
           fontSize: '16px'
         }}>
-          Use your <strong>{FINGER_NAMES[targetFinger]}</strong> (finger {targetFinger})
+          <div style={{ color: '#f59e0b', marginBottom: '5px' }}>
+            {targetNotes.length > 1 ? (
+              <span>
+                Play chord: <strong>{targetNotes.join(' + ')}</strong>
+              </span>
+            ) : (
+              <span>
+                Play: <strong>{targetNotes[0]}</strong> with {FINGER_NAMES[targetFingers[0]]} (finger {targetFingers[0]})
+              </span>
+            )}
+          </div>
+          <div style={{
+            color: targetHand === 'left' ? '#3b82f6' : targetHand === 'right' ? '#10b981' : '#a855f7',
+            fontSize: '14px'
+          }}>
+            {HAND_NAMES[targetHand]}
+          </div>
         </div>
       )}
     </div>

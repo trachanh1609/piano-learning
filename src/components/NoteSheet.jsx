@@ -1,4 +1,4 @@
-import { FINGER_NAMES } from '../utils/noteMapping';
+import { FINGER_NAMES, HAND_NAMES } from '../utils/noteMapping';
 
 const NoteSheet = ({ notes = [], currentIndex = 0 }) => {
   const visibleNotes = notes.slice(
@@ -6,6 +6,12 @@ const NoteSheet = ({ notes = [], currentIndex = 0 }) => {
     currentIndex + 8
   );
   const startIndex = Math.max(0, currentIndex - 2);
+
+  const getHandColor = (hand) => {
+    if (hand === 'left') return '#3b82f6';
+    if (hand === 'right') return '#10b981';
+    return '#a855f7'; // both
+  };
 
   return (
     <div style={{
@@ -28,12 +34,13 @@ const NoteSheet = ({ notes = [], currentIndex = 0 }) => {
           const actualIndex = startIndex + idx;
           const isCurrent = actualIndex === currentIndex;
           const isPast = actualIndex < currentIndex;
+          const isChord = noteData.notes && noteData.notes.length > 1;
 
           return (
             <div
               key={actualIndex}
               style={{
-                minWidth: '80px',
+                minWidth: isChord ? '100px' : '80px',
                 padding: '15px',
                 backgroundColor: isCurrent ? '#3b82f6' : isPast ? '#166534' : '#374151',
                 borderRadius: '8px',
@@ -43,27 +50,67 @@ const NoteSheet = ({ notes = [], currentIndex = 0 }) => {
                 transition: 'all 0.3s ease'
               }}
             >
+              {/* Hand indicator */}
               <div style={{
-                fontSize: '24px',
+                fontSize: '10px',
+                color: getHandColor(noteData.hand),
+                marginBottom: '5px',
+                fontWeight: 'bold'
+              }}>
+                {noteData.hand === 'left' ? 'L' : noteData.hand === 'right' ? 'R' : 'L+R'}
+              </div>
+
+              {/* Notes display */}
+              <div style={{
+                fontSize: isChord ? '18px' : '24px',
                 fontWeight: 'bold',
                 color: '#fff',
                 marginBottom: '8px'
               }}>
-                {noteData.note}
+                {noteData.notes ? (
+                  isChord ? (
+                    <div style={{ lineHeight: '1.2' }}>
+                      {noteData.notes.map((note, i) => (
+                        <div key={i}>{note}</div>
+                      ))}
+                    </div>
+                  ) : (
+                    noteData.notes[0]
+                  )
+                ) : (
+                  noteData.note
+                )}
               </div>
+
+              {/* Finger indicators */}
               <div style={{
-                fontSize: '12px',
+                fontSize: '11px',
                 color: '#9ca3af'
               }}>
-                Finger {noteData.finger}
+                {noteData.fingers ? (
+                  isChord ? (
+                    <span>Fingers: {noteData.fingers.join(', ')}</span>
+                  ) : (
+                    <span>Finger {noteData.fingers[0]}</span>
+                  )
+                ) : (
+                  <span>Finger {noteData.finger}</span>
+                )}
               </div>
+
+              {/* Finger names */}
               <div style={{
-                fontSize: '10px',
+                fontSize: '9px',
                 color: '#6b7280',
                 marginTop: '4px'
               }}>
-                {FINGER_NAMES[noteData.finger]}
+                {noteData.fingers ? (
+                  noteData.fingers.map(f => FINGER_NAMES[f]).join(', ')
+                ) : (
+                  FINGER_NAMES[noteData.finger]
+                )}
               </div>
+
               {isPast && (
                 <div style={{
                   marginTop: '8px',

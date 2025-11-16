@@ -5,6 +5,7 @@ import { frequencyToNote } from '../utils/noteMapping';
 export const usePitchDetection = () => {
   const [isListening, setIsListening] = useState(false);
   const [currentNote, setCurrentNote] = useState(null);
+  const [detectedNotes, setDetectedNotes] = useState([]); // Recent notes buffer for chord detection
   const [currentFrequency, setCurrentFrequency] = useState(null);
   const [clarity, setClarity] = useState(0);
   const [error, setError] = useState(null);
@@ -14,6 +15,8 @@ export const usePitchDetection = () => {
   const streamRef = useRef(null);
   const animationFrameRef = useRef(null);
   const detectorRef = useRef(null);
+  const noteHistoryRef = useRef([]); // Keep track of notes over time
+  const lastNoteTimeRef = useRef(0);
 
   const startListening = async () => {
     try {
@@ -61,13 +64,38 @@ export const usePitchDetection = () => {
 
         setClarity(clarityValue);
 
-        if (clarityValue > 0.9 && pitch > 100 && pitch < 2000) {
+        const now = Date.now();
+
+        if (clarityValue > 0.85 && pitch > 60 && pitch < 2000) {
           setCurrentFrequency(pitch);
           const note = frequencyToNote(pitch);
           setCurrentNote(note);
+
+          if (note) {
+            // Add to note history for chord detection
+            // Keep notes detected within the last 150ms
+            noteHistoryRef.current = noteHistoryRef.current.filter(
+              entry => now - entry.time < 150
+            );
+
+            // Only add if this note isn't already in the recent history
+            if (!noteHistoryRef.current.some(entry => entry.note === note)) {
+              noteHistoryRef.current.push({ note, time: now });
+            }
+
+            // Update detected notes (unique notes from history)
+            const recentNotes = [...new Set(noteHistoryRef.current.map(e => e.note))];
+            setDetectedNotes(recentNotes);
+            lastNoteTimeRef.current = now;
+          }
         } else {
-          setCurrentNote(null);
-          setCurrentFrequency(null);
+          // Clear notes if no sound detected for a while
+          if (now - lastNoteTimeRef.current > 200) {
+            setCurrentNote(null);
+            setCurrentFrequency(null);
+            setDetectedNotes([]);
+            noteHistoryRef.current = [];
+          }
         }
 
         animationFrameRef.current = requestAnimationFrame(detectPitch);
@@ -96,8 +124,23 @@ export const usePitchDetection = () => {
 
     setIsListening(false);
     setCurrentNote(null);
+    setDetectedNotes([]);
     setCurrentFrequency(null);
     setClarity(0);
+    noteHistoryRef.current = [];
+  };
+
+  // Helper to check if all target notes are detected
+  const checkNotesMatch = (targetNotes) => {
+    if (!targetNotes || targetNotes.length === 0) return false;
+
+    // For single note, just check if it's detected
+    if (targetNotes.length === 1) {
+      return detectedNotes.includes(targetNotes[0]) || currentNote === targetNotes[0];
+    }
+
+    // For chords, check if all target notes are in detected notes
+    return targetNotes.every(note => detectedNotes.includes(note));
   };
 
   useEffect(() => {
@@ -109,10 +152,12 @@ export const usePitchDetection = () => {
   return {
     isListening,
     currentNote,
+    detectedNotes,
     currentFrequency,
     clarity,
     error,
     startListening,
-    stopListening
+    stopListening,
+    checkNotesMatch
   };
 };
