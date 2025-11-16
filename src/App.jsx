@@ -68,16 +68,14 @@ function App() {
     setShowFeedback(false);
   };
 
-  const handleYouTubeSubmit = (url) => {
-    // For now, use a sample song as placeholder
-    // In production, this would call a backend API to process the YouTube video
-    console.log('YouTube URL:', url);
-    setFeedback('YouTube processing coming soon! Using sample song for now.');
+  const handleYouTubeSubmit = (songData) => {
+    // songData comes from the backend API with { name, notes, duration }
+    setCurrentSong(songData);
+    setCurrentNoteIndex(0);
+    setIsPlaying(false);
+    setFeedback(`Loaded: ${songData.name} (${songData.notes.length} notes)`);
     setShowFeedback(true);
-    setTimeout(() => {
-      handleSongSelect('twinkle');
-      setShowFeedback(false);
-    }, 2000);
+    setTimeout(() => setShowFeedback(false), 2000);
   };
 
   const handleStart = async () => {
